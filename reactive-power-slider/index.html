@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Real and reactive power</title>
+<style>
+  body { margin: 0; padding: 1.5rem; font-family: system-ui, sans-serif; color: #222; background: #fff; }
+  .wrap { max-width: 760px; margin: 0 auto; }
+  .row { display: flex; align-items: center; gap: 12px; margin-bottom: 1rem; }
+  .row label { color: #666; font-size: 14px; white-space: nowrap; }
+  .row input { flex: 1; }
+  #angOut { font-size: 14px; font-weight: 600; min-width: 160px; text-align: right; }
+  .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 1rem; }
+  .card { background: #f3f3f1; border-radius: 8px; padding: 0.75rem 1rem; }
+  .card .k { font-size: 13px; color: #666; }
+  .card .v { font-size: 22px; font-weight: 600; }
+  .card .d { font-size: 12px; color: #777; }
+  canvas { width: 100%; height: 240px; display: block; }
+  .legend { display: flex; gap: 18px; flex-wrap: wrap; font-size: 13px; color: #666; margin-top: 8px; }
+  .defs { display: grid; grid-template-columns: max-content 1fr; gap: 4px 14px; margin: 1.25rem 0 0; font-size: 14px; }
+  .defs dt { font-weight: 600; }
+  .defs dd { margin: 0; color: #555; }
+  .sw { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="row">
+    <label for="ang">Current phase</label>
+    <input type="range" id="ang" min="-90" max="90" step="1" value="30">
+    <span id="angOut"></span>
+  </div>
+  <div class="cards">
+    <div class="card"><div class="k">Real power P</div><div class="v" id="P"></div><div class="d">Does useful work (watts)</div></div>
+    <div class="card"><div class="k">Reactive power Q</div><div class="v" id="Q"></div><div class="d">Stored and returned each cycle (vars)</div></div>
+    <div class="card"><div class="k">Apparent power S</div><div class="v">1.00</div><div class="d">Total the wires carry, V × I (VA)</div></div>
+    <div class="card"><div class="k">Power factor</div><div class="v" id="PF"></div><div class="d">Share doing work, P ÷ S</div></div>
+  </div>
+  <canvas id="cv"></canvas>
+  <div class="legend">
+    <span><span class="sw" style="background:#888780"></span>Voltage</span>
+    <span><span class="sw" style="background:#378ADD"></span>Current</span>
+    <span><span class="sw" style="background:#BA7517"></span>Power (v × i)</span>
+    <span>Shaded below zero: power flowing back to the source</span>
+  </div>
+  <dl class="defs">
+    <dt>Phase angle</dt><dd>How far current is shifted from voltage. Lag = inductive (motors), lead = capacitive.</dd>
+    <dt>Capacitor</dt><dd>Stores energy in an electric field. Current leads voltage; supplies reactive power.</dd>
+    <dt>Inductor</dt><dd>Stores energy in a magnetic field. Current lags voltage; consumes reactive power.</dd>
+  </dl>
+</div>
+<script>
+const s = document.getElementById('ang'), cv = document.getElementById('cv'), ctx = cv.getContext('2d');
+function draw() {
+  const th = +s.value, r = th * Math.PI / 180;
+  document.getElementById('angOut').textContent = th > 0 ? th + '° lag (inductive)' : th < 0 ? (-th) + '° lead (capacitive)' : '0° (resistive)';
+  document.getElementById('P').textContent = Math.cos(r).toFixed(2);
+  document.getElementById('Q').textContent = (Math.sin(r) >= 0 ? '+' : '') + Math.sin(r).toFixed(2);
+  document.getElementById('PF').textContent = Math.abs(Math.cos(r)).toFixed(2);
+  const dpr = window.devicePixelRatio || 1, W = cv.clientWidth, H = 240;
+  cv.width = W * dpr; cv.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
+  const mid = H / 2, amp = H * 0.36, N = 400, X = k => k / N * W, t = k => k / N * 4 * Math.PI;
+  const p = k => Math.sin(t(k)) * Math.sin(t(k) - r);
+  ctx.strokeStyle = '#ddd'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(W, mid); ctx.stroke();
+  const fill = (f, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(0, mid);
+    for (let k = 0; k <= N; k++) ctx.lineTo(X(k), mid - f(p(k)) * amp); ctx.lineTo(W, mid); ctx.closePath(); ctx.fill(); };
+  fill(v => Math.min(v, 0), 'rgba(226,75,74,0.18)'); fill(v => Math.max(v, 0), 'rgba(186,117,23,0.16)');
+  const line = (f, c) => { ctx.strokeStyle = c; ctx.lineWidth = 2; ctx.beginPath();
+    for (let k = 0; k <= N; k++) { const y = mid - f(k) * amp; k ? ctx.lineTo(X(k), y) : ctx.moveTo(X(k), y); } ctx.stroke(); };
+  line(k => Math.sin(t(k)), '#888780'); line(k => Math.sin(t(k) - r), '#378ADD'); line(p, '#BA7517');
+}
+s.addEventListener('input', draw); window.addEventListener('resize', draw); draw();
+</script>
+</body>
+</html>
