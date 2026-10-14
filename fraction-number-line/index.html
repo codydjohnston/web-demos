@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="icon" href="/favicon.ico">
+<link rel="icon" href="../favicon.ico">
 <title>Fraction times a whole number</title>
 <style>
   body { margin: 0; padding: 1.5rem; font-family: system-ui, sans-serif; color: #222; background: #fff; }
@@ -65,13 +65,15 @@
 const $ = id => document.getElementById(id), NS = 'http://www.w3.org/2000/svg';
 const ACC = '#BA7517', ACC_FILL = '#F5E3C6', LINE = '#222', MUTED = '#888780';
 let mode = location.hash === '#sets' ? 'sets' : 'of';
+// Decimals start on for "1/4 of 9" and off for "9 sets of 1/4"; each view remembers its own setting
+const decByMode = { of: true, sets: false };
 
 function gcd(a, b) { return b ? gcd(b, a % b) : a; }
 function dec(n, d) {
   const v = n / d, r = Math.round(v * 1000) / 1000;
   return (Math.abs(v - r) > 1e-9 ? '≈ ' : '') + r;
 }
-const showDec = () => $('showDec').checked;
+const showDec = () => decByMode[mode];
 // "9/4", or "9/4 = 2.25" when decimals are on
 const val = (top, d) => `${top}/${d}` + (showDec() ? ` = ${dec(top, d)}` : '');
 function fracHTML(n, d) { return `<span class="frac"><span>${n}</span><span>${d}</span></span>`; }
@@ -200,6 +202,7 @@ function draw() {
   $('modeSets').textContent = `${w} sets of ${n}/${d}`;
   $('modeOf').setAttribute('aria-pressed', mode === 'of');
   $('modeSets').setAttribute('aria-pressed', mode === 'sets');
+  $('showDec').checked = decByMode[mode];
   $('wholeLabel').textContent = mode === 'of' ? 'Whole number' : 'Number of sets';
 
   const svg = $('cv');
@@ -210,7 +213,8 @@ function draw() {
 
 $('modeOf').addEventListener('click', () => { mode = 'of'; draw(); });
 $('modeSets').addEventListener('click', () => { mode = 'sets'; draw(); });
-['num', 'den', 'whole', 'showDec'].forEach(id => $(id).addEventListener('input', draw));
+$('showDec').addEventListener('input', () => { decByMode[mode] = $('showDec').checked; draw(); });
+['num', 'den', 'whole'].forEach(id => $(id).addEventListener('input', draw));
 draw();
 </script>
 </body>
