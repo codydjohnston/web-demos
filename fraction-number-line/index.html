@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fraction of a whole number</title>
+<style>
+  body { margin: 0; padding: 1.5rem; font-family: system-ui, sans-serif; color: #222; background: #fff; }
+  .wrap { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 22px; margin: 0 0 1rem; }
+  .controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 20px; margin-bottom: 1.25rem; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { color: #666; font-size: 13px; }
+  .field input { width: 4.5rem; font: inherit; font-size: 18px; padding: 4px 6px; border: 1px solid #ccc; border-radius: 6px; }
+  .field input:focus { outline: 2px solid #378ADD; outline-offset: 1px; }
+  .fracin { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .fracin hr { width: 100%; border: 0; border-top: 2px solid #222; margin: 0; }
+  .times { font-size: 22px; color: #666; padding-bottom: 28px; }
+  .eq { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; font-size: 22px; background: #f3f3f1; border-radius: 8px; padding: 0.75rem 1rem; margin-bottom: 1.25rem; font-variant-numeric: tabular-nums; }
+  .eq .ans { color: #BA7517; font-weight: 600; }
+  .frac { display: inline-flex; flex-direction: column; align-items: center; line-height: 1.1; }
+  .frac span:first-child { border-bottom: 2px solid currentColor; padding: 0 3px; }
+  .frac span:last-child { padding: 0 3px; }
+  .scroll { overflow-x: auto; }
+  svg { display: block; width: 100%; min-width: 560px; height: auto; font-variant-numeric: tabular-nums; }
+  .note { font-size: 14px; color: #555; line-height: 1.5; max-width: 65ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Fraction of a whole number</h1>
+  <div class="controls">
+    <div class="field">
+      <label>Fraction</label>
+      <div class="fracin">
+        <input type="number" id="num" min="0" max="12" value="1" aria-label="Numerator">
+        <hr>
+        <input type="number" id="den" min="1" max="12" value="4" aria-label="Denominator">
+      </div>
+    </div>
+    <div class="times">×</div>
+    <div class="field" style="padding-bottom: 22px">
+      <label for="whole">Whole number</label>
+      <input type="number" id="whole" min="1" max="20" value="9">
+    </div>
+  </div>
+  <div class="eq" id="eq"></div>
+  <div class="scroll"><svg id="cv" role="img" aria-label="Tape diagram and number line"></svg></div>
+  <p class="note" id="note"></p>
+</div>
+<script>
+const $ = id => document.getElementById(id), NS = 'http://www.w3.org/2000/svg';
+const ACC = '#BA7517', ACC_FILL = '#F5E3C6', LINE = '#222', MUTED = '#888780';
+
+function gcd(a, b) { return b ? gcd(b, a % b) : a; }
+function dec(n, d) {
+  const v = n / d, r = Math.round(v * 1000) / 1000;
+  return (Math.abs(v - r) > 1e-9 ? '≈ ' : '') + r;
+}
+function fracHTML(n, d) { return `<span class="frac"><span>${n}</span><span>${d}</span></span>`; }
+function el(tag, attrs, text) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (text != null) e.textContent = text;
+  return e;
+}
+function clamp(input, lo, hi) {
+  let v = Math.round(+input.value);
+  if (!isFinite(v)) v = lo;
+  return Math.min(hi, Math.max(lo, v));
+}
+
+function draw() {
+  const d = clamp($('den'), 1, 12), n = clamp($('num'), 0, d), w = clamp($('whole'), 1, 20);
+  const top = n * w, g = gcd(top, d) || 1;
+
+  // Equation: n/d × w = (n×w)/d = simplified = decimal
+  let eq = `${fracHTML(n, d)} × ${w} = ${fracHTML(top, d)}`;
+  if (g > 1 && d / g !== 1) eq += ` = ${fracHTML(top / g, d / g)}`;
+  if (top % d === 0) eq += ` = <span class="ans">${top / d}</span>`;
+  else {
+    const whole = Math.floor(top / d), rem = top % d;
+    if (whole > 0) eq += ` = ${whole} ${fracHTML(rem / gcd(rem, d), d / gcd(rem, d))}`;
+    eq += ` = <span class="ans">${dec(top, d)}</span>`;
+  }
+  $('eq').innerHTML = eq;
+
+  $('note').textContent = `Split ${w} into ${d} equal part${d > 1 ? 's' : ''}. Each part is ${w}/${d} = ${dec(w, d)}. ` +
+    `Taking ${n} of those parts lands at ${top}/${d} = ${dec(top, d)} on the number line.`;
+
+  const svg = $('cv'), W = 900, L = 40, R = W - 40, X = v => L + (R - L) * v / w;
+  const y1 = 30, y2 = 110, bh = 44, yl = 215, H = 300;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  svg.replaceChildren();
+
+  // Row 1: the whole number as unit blocks
+  svg.append(el('text', { x: L, y: y1 - 10, 'font-size': 13, fill: '#666' }, `${w} whole${w > 1 ? 's' : ''}`));
+  for (let i = 0; i < w; i++) {
+    svg.append(el('rect', { x: X(i), y: y1, width: X(1) - X(0), height: bh, fill: '#f3f3f1', stroke: '#bbb' }));
+    svg.append(el('text', { x: (X(i) + X(i + 1)) / 2, y: y1 + bh / 2 + 5, 'text-anchor': 'middle', 'font-size': 15, fill: '#555' }, '1'));
+  }
+
+  // Row 2: the same length split into d equal parts, n shaded
+  svg.append(el('text', { x: L, y: y2 - 10, 'font-size': 13, fill: '#666' }, `Split into ${d} equal part${d > 1 ? 's' : ''}`));
+  const pw = w / d;
+  for (let k = 0; k < d; k++) {
+    const on = k < n;
+    svg.append(el('rect', { x: X(k * pw), y: y2, width: X(pw) - X(0), height: bh, fill: on ? ACC_FILL : '#fff', stroke: on ? ACC : '#bbb', 'stroke-width': on ? 1.5 : 1 }));
+    const cx = X((k + 0.5) * pw), c = on ? ACC : '#555';
+    svg.append(el('text', { x: cx, y: y2 + 19, 'text-anchor': 'middle', 'font-size': 14, fill: c }, '1'));
+    svg.append(el('line', { x1: cx - 8, x2: cx + 8, y1: y2 + 23, y2: y2 + 23, stroke: c, 'stroke-width': 1.5 }));
+    svg.append(el('text', { x: cx, y: y2 + 38, 'text-anchor': 'middle', 'font-size': 14, fill: c }, d));
+  }
+
+  // Guides from part boundaries down to the number line
+  for (let k = 0; k <= d; k++) {
+    svg.append(el('line', { x1: X(k * pw), x2: X(k * pw), y1: y2 + bh, y2: yl - 28, stroke: k === n ? ACC : '#ccc', 'stroke-dasharray': '3 4' }));
+  }
+
+  // Number line
+  svg.append(el('line', { x1: L, x2: R, y1: yl, y2: yl, stroke: LINE, 'stroke-width': 2 }));
+  if (n > 0) svg.append(el('line', { x1: X(0), x2: X(n * pw), y1: yl, y2: yl, stroke: ACC, 'stroke-width': 6, 'stroke-linecap': 'round' }));
+  for (let i = 0; i <= w; i++) {
+    svg.append(el('line', { x1: X(i), x2: X(i), y1: yl - 6, y2: yl + 6, stroke: MUTED }));
+    svg.append(el('text', { x: X(i), y: yl - 12, 'text-anchor': 'middle', 'font-size': 12, fill: MUTED }, i));
+  }
+
+  // Each part boundary: stacked fraction, decimal below it
+  for (let k = 0; k <= d; k++) {
+    const x = X(k * pw), hit = k === n, c = hit ? ACC : LINE, wt = hit ? 700 : 400;
+    svg.append(el('line', { x1: x, x2: x, y1: yl - 10, y2: yl + 10, stroke: c, 'stroke-width': 2 }));
+    svg.append(el('text', { x, y: yl + 30, 'text-anchor': 'middle', 'font-size': 15, fill: c, 'font-weight': wt }, k * w));
+    const hw = Math.max(10, String(k * w).length * 5 + 3);
+    svg.append(el('line', { x1: x - hw, x2: x + hw, y1: yl + 35, y2: yl + 35, stroke: c, 'stroke-width': 1.5 }));
+    svg.append(el('text', { x, y: yl + 51, 'text-anchor': 'middle', 'font-size': 15, fill: c, 'font-weight': wt }, d));
+    svg.append(el('text', { x, y: yl + 72, 'text-anchor': 'middle', 'font-size': 13, fill: hit ? ACC : '#666', 'font-weight': wt }, dec(k * w, d)));
+  }
+  svg.append(el('circle', { cx: X(n * pw), cy: yl, r: 7, fill: ACC, stroke: '#fff', 'stroke-width': 2 }));
+}
+
+['num', 'den', 'whole'].forEach(id => $(id).addEventListener('input', draw));
+draw();
+</script>
+</body>
+</html>
